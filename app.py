@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 import streamlit as st
 import pandas as pd
+import nltk
 from nltk.tokenize import RegexpTokenizer
 from collections import Counter
 from nltk import bigrams, pos_tag
@@ -414,3 +415,4 @@ with tab3:
     - Parts-Of-Speech tagging (filtering words and reduce false positives real-word error)
 
     """)
+
