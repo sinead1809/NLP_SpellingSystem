@@ -37,27 +37,23 @@ def corpus_preprocess(corpus_file: Path):
     with corpus_file.open("r", encoding="utf-8") as f:
         corpus_lower = f.read().lower()
 
-    # Tokenise words (letters only)
     tokenizer = RegexpTokenizer(r"\b[a-z]+\b")
     tokens = tokenizer.tokenize(corpus_lower)
 
-    # Unigram frequency
     unigram_freq = Counter(tokens)
 
-    # vocab_all: all observed words (for "known word?" checks + dictionary)
+    # All words seen in corpus (for checking if token is known)
     vocab_all = set(unigram_freq.keys())
 
-    # vocab_common: only frequent words (for candidate generation)
+    # Frequent words only (for candidate generation)
     vocab_common = set(w for w, c in unigram_freq.items() if c >= 2)
 
-    # Bigram frequency
     bigram_freq = FreqDist(bigrams(tokens))
-
     return unigram_freq, vocab_all, vocab_common, bigram_freq
 
 
 # -------------------------
-# Corpus path (works in GitHub/Streamlit Cloud)
+# Corpus path (works on Streamlit Cloud)
 # -------------------------
 BASE = Path(__file__).parent
 corpus_path = BASE / "medical_corpus.txt"
@@ -66,7 +62,6 @@ if not corpus_path.exists():
 
 unigram_freq, vocab_all, vocab_common, bigram_freq = corpus_preprocess(corpus_path)
 
-# Stopwords
 stop_words = set(stopwords.words("english"))
 
 
@@ -75,7 +70,6 @@ stop_words = set(stopwords.words("english"))
 # =========================
 def edit_distance(w1: str, w2: str) -> int:
     m, n = len(w1), len(w2)
-
     dp = [[0] * (n + 1) for _ in range(m + 1)]
 
     for i in range(m + 1):
@@ -94,14 +88,13 @@ def edit_distance(w1: str, w2: str) -> int:
 
 
 # =========================
-# Get candidate/suggested words
+# Candidate generation
 # =========================
 def get_candidates(word: str, max_edit_dist: int = 2):
     candidates = []
     word_len = len(word)
 
     for w in vocab_common:
-        # cheap length filter
         if abs(len(w) - word_len) > max_edit_dist:
             continue
         if w == word:
@@ -111,7 +104,7 @@ def get_candidates(word: str, max_edit_dist: int = 2):
         if d <= max_edit_dist:
             candidates.append((w, d))
 
-    # sort: distance asc, frequency desc
+    # Sort by: distance asc, frequency desc
     return sorted(candidates, key=lambda x: (x[1], -unigram_freq.get(x[0], 0)))
 
 
@@ -119,10 +112,6 @@ def get_candidates(word: str, max_edit_dist: int = 2):
 # Real-word detection (Bigram + POS + Stopwords)
 # =========================
 def is_real_word_error(word: str, prev_word: str | None, pos: str, threshold: int = 100) -> bool:
-    """
-    Flags a real-word error if a close candidate forms a far more frequent bigram
-    with the previous word.
-    """
     if not prev_word or len(word) <= 3:
         return False
     if word in stop_words:
@@ -134,7 +123,6 @@ def is_real_word_error(word: str, prev_word: str | None, pos: str, threshold: in
 
     current_bigram_freq = bigram_freq.get((prev_word, word), 0)
     candidates = get_candidates(word, max_edit_dist=2)
-
     if not candidates:
         return False
 
@@ -152,7 +140,6 @@ def is_real_word_error(word: str, prev_word: str | None, pos: str, threshold: in
 def detect_errors(text: str):
     original_tokens = text.split()
     processed_tokens = [re.sub(r"[^a-z]", "", t.lower()) for t in original_tokens]
-
     tags = pos_tag(processed_tokens)
 
     results = []
@@ -176,13 +163,13 @@ def detect_errors(text: str):
             prev_word = None
             continue
 
-        # Non-word: not seen in corpus at all
+        # Non-word: not present in corpus at all
         if w not in vocab_all:
             entry["error"] = True
             entry["type"] = "Non-word"
             entry["candidates"] = get_candidates(w, max_edit_dist=2)
 
-        # Real-word: seen but context unlikely
+        # Real-word: present but context unlikely
         elif is_real_word_error(w, prev_word, pos):
             entry["error"] = True
             entry["type"] = "Real-word"
@@ -190,7 +177,7 @@ def detect_errors(text: str):
 
         results.append(entry)
 
-        # IMPORTANT: always update context for next word
+        # Always update prev_word for correct context
         prev_word = w
 
     return results
@@ -201,16 +188,11 @@ def detect_errors(text: str):
 # =========================
 def highlight(results):
     html_output = []
-
     for entry in results:
         word = entry["original_word"]
-
         if entry["error"]:
             bg_color = "#FF4B4B" if entry["type"] == "Non-word" else "#1C83E1"
-            span = (
-                f"<span style='background:{bg_color};color:white;"
-                f"padding:2px 6px;border-radius:4px'>{word}</span>"
-            )
+            span = f"<span style='background:{bg_color};color:white;padding:2px 6px;border-radius:4px'>{word}</span>"
             html_output.append(span)
         else:
             html_output.append(word)
@@ -245,7 +227,7 @@ with tab1:
 1. Enter text (maximum **500 characters**)
 2. Click **Check Spelling**
 3. **Red** = Non-word errors, **Blue** = Real-word errors
-4. Choose suggested replacements to generate a corrected sentence
+4. Choose suggested replacements (showing **minimum edit distance**) to generate corrected text
 """)
 
     text = st.text_area(
@@ -257,7 +239,6 @@ with tab1:
 
     if st.button("Check Spelling"):
         st.session_state.errors = detect_errors(text)
-        # initialise correction map with original words
         st.session_state.corrected = {e["index"]: e["original_word"] for e in st.session_state.errors}
 
     if st.session_state.errors:
@@ -274,16 +255,17 @@ with tab1:
             for e in st.session_state.errors:
                 if e["error"] and e["type"] == "Non-word":
                     found = True
-                    options = [w for w, _d in e["candidates"][:5]]  # HIDE edit distance in UI
+                    options = [f"{w} (min edit distance = {d})" for w, d in e["candidates"][:5]]
                     if not options:
-                        options = [e["original_word"]]
+                        options = [f"{e['original_word']} (min edit distance = 0)"]
 
                     choice = st.selectbox(
                         f"Correction for: {e['original_word']}",
                         options,
                         key=f"nw_{e['index']}"
                     )
-                    st.session_state.corrected[e["index"]] = choice
+                    chosen_word = choice.split(" (min edit distance")[0]
+                    st.session_state.corrected[e["index"]] = chosen_word
 
             if not found:
                 st.caption("No non-word errors detected.")
@@ -296,8 +278,12 @@ with tab1:
             for e in st.session_state.errors:
                 if e["error"] and e["type"] == "Real-word":
                     found = True
-                    options = [e["original_word"]] + [w for w, _d in e["candidates"][:5]]  # include original word
-                    # remove duplicates while preserving order
+
+                    original_opt = f"{e['original_word']} (min edit distance = 0)"
+                    cand_opts = [f"{w} (min edit distance = {d})" for w, d in e["candidates"][:5]]
+                    options = [original_opt] + cand_opts
+
+                    # de-duplicate while keeping order
                     seen = set()
                     options = [x for x in options if not (x in seen or seen.add(x))]
 
@@ -306,12 +292,12 @@ with tab1:
                         options,
                         key=f"rw_{e['index']}"
                     )
-                    st.session_state.corrected[e["index"]] = choice
+                    chosen_word = choice.split(" (min edit distance")[0]
+                    st.session_state.corrected[e["index"]] = chosen_word
 
             if not found:
                 st.caption("No real-word errors detected.")
 
-        # Join back into original sequence
         final_sentence = " ".join(
             st.session_state.corrected[i] for i in range(len(st.session_state.errors))
         )
