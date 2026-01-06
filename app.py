@@ -1,24 +1,18 @@
-from pathlib import Path
 import re
 import streamlit as st
 import pandas as pd
-import nltk
 from nltk.tokenize import RegexpTokenizer
 from collections import Counter
 from nltk import bigrams, pos_tag
 from nltk.corpus import stopwords
 from nltk.probability import FreqDist
+from pathlib import Path
 
+import nltk
 
-@st.cache_resource
-def ensure_nltk_data():
-    nltk.download("punkt")
-    nltk.download("stopwords")
-    # NLTK versions differ; download both tagger names safely
-    nltk.download("averaged_perceptron_tagger")
-    nltk.download("averaged_perceptron_tagger_eng")
-
-ensure_nltk_data()
+nltk.download("punkt")
+nltk.download("averaged_perceptron_tagger")
+nltk.download("stopwords")
 
 # =========================
 # Load & preprocess corpus
@@ -48,10 +42,8 @@ def corpus_preprocess(corpus_file):
     return unigram_freq, vocab, bigram_freq
 
 # Put path to corpus file here
-BASE = Path(__file__).parent
-corpus = BASE / "medical_corpus.txt"
-if not corpus.exists():
-    corpus = BASE / "data" / "medical_corpus.txt"
+BASE_DIR = Path(__file__).resolve().parent
+corpus = BASE_DIR / "data" / "medical_corpus.txt"
 
 # Preprocess corpus
 unigram_freq, vocab, bigram_freq = corpus_preprocess(corpus)
@@ -415,4 +407,3 @@ with tab3:
     - Parts-Of-Speech tagging (filtering words and reduce false positives real-word error)
 
     """)
-
