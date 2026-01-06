@@ -43,7 +43,7 @@ def corpus_preprocess(corpus_file):
 
 # Put path to corpus file here
 BASE_DIR = Path(__file__).resolve().parent
-corpus = BASE_DIR / "data" / "medical_corpus.txt"
+corpus = BASE_DIR / "medical_corpus.txt"
 
 # Preprocess corpus
 unigram_freq, vocab, bigram_freq = corpus_preprocess(corpus)
@@ -407,3 +407,4 @@ with tab3:
     - Parts-Of-Speech tagging (filtering words and reduce false positives real-word error)
 
     """)
+
