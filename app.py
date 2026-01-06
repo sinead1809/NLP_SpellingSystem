@@ -9,10 +9,12 @@ from nltk.probability import FreqDist
 from pathlib import Path
 
 import nltk
-
-nltk.download("punkt")
-nltk.download("averaged_perceptron_tagger")
-nltk.download("stopwords")
+@st.cache_resource
+def download_nltk_data():
+    nltk.download("punkt")
+    nltk.download("averaged_perceptron_tagger_eng")
+    nltk.download("stopwords")
+download_nltk_data()
 
 # =========================
 # Load & preprocess corpus
@@ -407,4 +409,5 @@ with tab3:
     - Parts-Of-Speech tagging (filtering words and reduce false positives real-word error)
 
     """)
+
 
