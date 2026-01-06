@@ -50,7 +50,7 @@ def corpus_preprocess(corpus_file: Path):
 
 
 # Robust path (works locally + cloud)
-corpus_path = Path(__file__).parent / "data" / "medical_corpus.txt"
+corpus_path = Path(__file__).parent / "medical_corpus.txt"
 
 unigram_freq, vocab_all, vocab, bigram_freq = corpus_preprocess(corpus_path)
 stop_words = set(stopwords.words("english"))
@@ -214,4 +214,5 @@ with tab3:
     - Bigram language model
     - POS tagging
     """)
+
 
